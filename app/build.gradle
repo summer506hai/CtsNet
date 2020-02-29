@@ -1,0 +1,65 @@
+apply plugin: 'com.android.application'
+
+android {
+    compileSdkVersion 26
+    buildToolsVersion '26.0.2'
+    defaultConfig {
+        applicationId "android.net.cts"
+        minSdkVersion 19
+        targetSdkVersion 29
+        versionCode 1
+        versionName "1.0"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+    sourceSets {
+        main {
+            manifest.srcFile 'AndroidManifest.xml'
+
+            // 其中src,utils为默认camera源码，多个时以逗号隔开；后面几个为依赖的源码，从安卓源码中复制到工程中
+            java.srcDirs = ['src', 'utils', 'test-annotations', 'test-runner-src', 'test-mock-src']
+            res.srcDirs = ['res']
+            aidl.srcDirs = ['src']
+            assets.srcDirs = ['assets']
+
+            //若有jni源码，但是又不想使用，仅用于修改并生成so，可以如下设置
+            jni.srcDirs = []
+            jniLibs.srcDirs = ['libs']
+
+            //.rs文件目录
+            renderscript.srcDirs = ['src']
+        }
+    }
+}
+
+dependencies {
+    //implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation files('libs/framework.jar')
+    implementation 'com.android.support.constraint:constraint-layout:1.1.3'
+    testImplementation 'junit:junit:4.12'
+    androidTestImplementation 'com.android.support.test:runner:1.0.2'
+    androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
+    //  implementation files('libs/junit-4.12.jar')
+    implementation 'com.android.support:multidex:1.0.3'
+}
+preBuild {
+    doLast {
+        def imlFile = file(project.name + ".iml")
+        println 'Change ' + project.name + '.iml order'
+        try{
+            def parsedXml = (new XmlParser()).parse(imlFile)
+            def jdkNode = parsedXml.component[1].orderEntry.find { it.'@type' == 'jdk' }
+            parsedXml.component[1].remove(jdkNode)
+            def sdkString = "Android API " + android.compileSdkVersion.substring("android-".length()) + " Platform"
+            new Node(parsedXml.component[1], 'orderEntry', ['type': 'jdk', 'jdkName': sdkString, 'jdkType': 'Android SDK'])
+            groovy.xml.XmlUtil.serialize(parsedXml, new FileOutputStream(imlFile))
+        } catch (FileNotFoundException e){
+            //nop,iml not found
+        }
+    }
+}
